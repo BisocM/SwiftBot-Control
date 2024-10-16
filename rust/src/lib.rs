@@ -71,7 +71,7 @@ pub extern "system" fn Java_com_swiftbot_NativeBindings_stop(
     _class: JClass,
 ) {
     let mut motors = MOTORS.lock().unwrap();
-    if let Err(e) = motors.stop() {
+    if let Err(e) = motors.set_motor_speeds(0.0, 0.0) {
         let _ = env.throw_new("java/lang/Exception", format!("{}", e));
     }
 }
@@ -102,7 +102,7 @@ pub extern "system" fn Java_com_swiftbot_NativeBindings_forward(
     speed: jdouble,
 ) {
     let mut motors = MOTORS.lock().unwrap();
-    if let Err(e) = motors.forward(speed as f64) {
+    if let Err(e) = motors.set_motor_speeds(speed as f64, speed as f64) {
         let _ = env.throw_new("java/lang/Exception", format!("{}", e));
     }
 }
@@ -133,7 +133,7 @@ pub extern "system" fn Java_com_swiftbot_NativeBindings_backward(
     speed: jdouble,
 ) {
     let mut motors = MOTORS.lock().unwrap();
-    if let Err(e) = motors.backward(speed as f64) {
+    if let Err(e) = motors.set_motor_speeds(-speed as f64, -speed as f64) {
         let _ = env.throw_new("java/lang/Exception", format!("{}", e));
     }
 }
@@ -164,7 +164,7 @@ pub extern "system" fn Java_com_swiftbot_NativeBindings_turnLeft(
     speed: jdouble,
 ) {
     let mut motors = MOTORS.lock().unwrap();
-    if let Err(e) = motors.turn_left(speed as f64) {
+    if let Err(e) = motors.set_motor_speeds(-speed as f64, speed as f64) {
         let _ = env.throw_new("java/lang/Exception", format!("{}", e));
     }
 }
@@ -195,7 +195,7 @@ pub extern "system" fn Java_com_swiftbot_NativeBindings_turnRight(
     speed: jdouble,
 ) {
     let mut motors = MOTORS.lock().unwrap();
-    if let Err(e) = motors.turn_right(speed as f64) {
+    if let Err(e) = motors.set_motor_speeds(speed as f64, -speed as f64) {
         let _ = env.throw_new("java/lang/Exception", format!("{}", e));
     }
 }

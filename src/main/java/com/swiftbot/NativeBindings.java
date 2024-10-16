@@ -2,7 +2,7 @@ package com.swiftbot;
 
 public class NativeBindings {
     static {
-        System.loadLibrary("swiftbot_rs_lib.so"); //Load the lib
+        System.loadLibrary("swiftbot_rs_lib"); //Load the lib
         //Would be better to set an environment variable here that points to the compiled .so lib.
     }
 

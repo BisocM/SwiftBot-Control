@@ -19,55 +19,42 @@ impl Sensors {
         })
     }
 
-    pub fn read_distance(
-        &mut self,
-        timeout_ms: u64,
-        samples: u32,
-        offset_ns: u64,
-    ) -> Result<f64, Box<dyn Error>> {
-        let mut total_pulse_duration = 0u64;
-        let mut count = 0;
-
+    pub fn read_distance(&mut self, timeout_ms: u64) -> Result<f64, Box<dyn Error>> {
         let timeout = Duration::from_millis(timeout_ms);
 
-        let start_time = Instant::now();
+        //Trigger a pulse by setting the trigger pin high for 10 microseconds
+        self.ultra_trig.set_low();  // Ensure the trigger pin is low
+        std::thread::sleep(Duration::from_micros(2));  //Wait 2 microseconds
+        self.ultra_trig.set_high();
+        std::thread::sleep(Duration::from_micros(10));  //Pulse for 10 microseconds
+        self.ultra_trig.set_low();
 
-        while count < samples && start_time.elapsed() < timeout {
-            //Trigger pulse
-            self.ultra_trig.set_high();
-            std::thread::sleep(Duration::from_micros(10));
-            self.ultra_trig.set_low();
-
-            //Wait for echo to go high
-            let pulse_start = Instant::now();
-            while self.ultra_echo.is_low() {
-                if pulse_start.elapsed() > timeout {
-                    break;
-                }
-            }
-
-            //Wait for echo to go low
-            let pulse_end = Instant::now();
-            while self.ultra_echo.is_high() {
-                if pulse_end.elapsed() > timeout {
-                    break;
-                }
-            }
-
-            let pulse_duration = pulse_end.duration_since(pulse_start).as_nanos() as u64;
-
-            if pulse_duration < timeout.as_nanos() as u64 {
-                total_pulse_duration += pulse_duration - offset_ns;
-                count += 1;
+        //Wait for the echo pin to go high
+        let start_wait = Instant::now();
+        while self.ultra_echo.is_low() {
+            if start_wait.elapsed() > timeout {
+                return Err("Timeout waiting for echo to start".into());
             }
         }
 
-        if count > 0 {
-            let avg_pulse_duration = total_pulse_duration as f64 / count as f64;
-            let distance = avg_pulse_duration * SPEED_OF_SOUND_CM_NS / 2.0;
-            Ok(distance)
+        //Measure the time the echo pin stays high
+        let echo_start = Instant::now();
+        while self.ultra_echo.is_high() {
+            if echo_start.elapsed() > timeout {
+                return Err("Timeout waiting for echo to end".into());
+            }
+        }
+        let pulse_duration = echo_start.elapsed();
+
+        //Calculate the distance in cm based on the duration and the speed of sound
+        //Speed of sound is ~34300 cm/s, which is ~0.0343 cm per microsecond
+        let distance = (pulse_duration.as_micros() as f64) * 0.0343 / 2.0;
+
+        //Return the distance if within a reasonable range, otherwise return an error
+        if distance > 400.0 || distance < 2.0 {
+            Err("Distance out of range".into())
         } else {
-            Ok(0.0)
+            Ok(distance)
         }
     }
 }
