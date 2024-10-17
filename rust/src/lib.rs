@@ -18,7 +18,7 @@ use crate::config::{BUTTON_A_PIN, BUTTON_B_PIN, BUTTON_X_PIN, BUTTON_Y_PIN};
 use jni::objects::JClass;
 use jni::sys::{jboolean, jbyteArray, jdouble, jint};
 use jni::JNIEnv;
-use std::sync::Mutex;
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use rppal::gpio::{Gpio, InputPin};
@@ -317,11 +317,11 @@ pub extern "system" fn Java_com_swiftbot_NativeBindings_readButton(
     _class: JClass,
     button_id: jint,
 ) -> jboolean {
-    let state = match button_id as u8 {
-        BUTTON_A => read_button_state(&BUTTON_A_INPUT),
-        BUTTON_B => read_button_state(&BUTTON_B_INPUT),
-        BUTTON_X => read_button_state(&BUTTON_X_INPUT),
-        BUTTON_Y => read_button_state(&BUTTON_Y_INPUT),
+    let state = match button_id {
+        0 => read_button_state(&BUTTON_A_INPUT),
+        1 => read_button_state(&BUTTON_B_INPUT),
+        2 => read_button_state(&BUTTON_X_INPUT),
+        3 => read_button_state(&BUTTON_Y_INPUT),
         _ => {
             let _ = env.throw_new("java/lang/IllegalArgumentException", "Invalid button ID");
             return 0;
@@ -512,31 +512,47 @@ pub extern "system" fn Java_com_swiftbot_NativeBindings_startButtonMonitoring(
     env: JNIEnv,
     _class: JClass,
 ) {
-    //Start a new thread to monitor button presses
+    let jvm = env.get_java_vm().unwrap(); // Get Java VM instance for attaching threads later
+    let gpio = Gpio::new().expect("Failed to initialize GPIO");
+    let button_pins: [InputPin; 4] = [
+        gpio.get(BUTTON_A_PIN).unwrap().into_input_pulldown(),
+        gpio.get(BUTTON_B_PIN).unwrap().into_input_pulldown(),
+        gpio.get(BUTTON_X_PIN).unwrap().into_input_pulldown(),
+        gpio.get(BUTTON_Y_PIN).unwrap().into_input_pulldown(),
+    ];
+
+    let (tx, rx) = mpsc::channel();
+    let tx = Arc::new(Mutex::new(tx));
+
+    // Monitoring thread
+    let tx_clone = Arc::clone(&tx);
     thread::spawn(move || {
         let mut button_states = [false; 4];
-
         loop {
-            for (i, pin) in [BUTTON_A_PIN, BUTTON_B_PIN, BUTTON_X_PIN, BUTTON_Y_PIN]
-                .iter()
-                .enumerate()
-            {
+            for (i, pin) in button_pins.iter().enumerate() {
                 let is_pressed = pin.is_high();
+                let tx = tx_clone.lock().unwrap();
 
-                //Detect button press
                 if is_pressed && !button_states[i] {
-                    notify_button_pressed(&env, i as u8);
+                    tx.send((i as u8, true)).unwrap();
                     button_states[i] = true;
-                }
-
-                //Detect button release
-                else if !is_pressed && button_states[i] {
-                    notify_button_released(&env, i as u8);
+                } else if !is_pressed && button_states[i] {
+                    tx.send((i as u8, false)).unwrap();
                     button_states[i] = false;
                 }
             }
+            thread::sleep(Duration::from_millis(50));
+        }
+    });
 
-            thread::sleep(Duration::from_millis(50)); //Have it sleep so the thread doesn't explode listening.
+    // Notification thread
+    thread::spawn(move || {
+        while let Ok((button_id, pressed)) = rx.recv() {
+            if pressed {
+                notify_button_pressed(&jvm, button_id);
+            } else {
+                notify_button_released(&jvm, button_id);
+            }
         }
     });
 }

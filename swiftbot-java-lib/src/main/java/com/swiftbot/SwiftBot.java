@@ -3,6 +3,13 @@ package com.swiftbot;
 import com.swiftbot.NativeBindings;
 
 public class SwiftBot {
+    private ButtonListener buttonListener;
+
+    public SwiftBot(ButtonListener buttonListener)
+    {
+        //Register the button listener with Rust.
+        registerButtonListener(buttonListener);
+    }
 
     /***********************************************************************
      *                          BUTTON CONSTANTS                           *
@@ -120,10 +127,10 @@ public class SwiftBot {
     /**
      * Registers the current SwiftBot class instance to listen for button presses.
      *
-     * @param listener Implementation of the ButtonListener interface.
      */
-    public void registerButtonListener(ButtonListener listener){
-        NativeBindings.registerButtonListener(listener);
+    private void registerButtonListener(ButtonListener buttonListener){
+        this.buttonListener = buttonListener;
+        NativeBindings.registerButtonListener(buttonListener);
     }
 
     public void onButtonReleased(int buttonId) {

@@ -1,9 +1,9 @@
 use crate::config::*;
 use crate::utils::clamp;
+use jni::sys::jint;
+use jni::JavaVM;
 use rppal::gpio::{Gpio, OutputPin};
 use std::error::Error;
-use jni::JNIEnv;
-use jni::sys::jint;
 
 /// Struct to manage LED control and underlighting using the SN3218 LED driver
 pub struct Buttons {
@@ -51,24 +51,18 @@ impl Buttons {
     }
 }
 
-pub fn notify_button_pressed(env: &mut JNIEnv, button_id: u8) {
+// Function to notify Java of a button press event
+pub(crate) fn notify_button_pressed(jvm: &JavaVM, button_id: u8) {
+    let mut env = jvm.attach_current_thread().unwrap();
     let button_class = env.find_class("com/swiftbot/NativeBindings").unwrap();
-    env.call_static_method(
-        button_class,
-        "onButtonPressed",
-        "(I)V",
-        &[jint::from(button_id).into()],
-    )
+    env.call_static_method(button_class, "onButtonPressed", "(I)V", &[jint::from(button_id).into()])
         .unwrap();
 }
 
-pub fn notify_button_released(env: &mut JNIEnv, button_id: u8) {
+// Function to notify Java of a button release event
+pub(crate) fn notify_button_released(jvm: &JavaVM, button_id: u8) {
+    let mut env = jvm.attach_current_thread().unwrap();
     let button_class = env.find_class("com/swiftbot/NativeBindings").unwrap();
-    env.call_static_method(
-        button_class,
-        "onButtonReleased",
-        "(I)V",
-        &[jint::from(button_id).into()],
-    )
+    env.call_static_method(button_class, "onButtonReleased", "(I)V", &[jint::from(button_id).into()])
         .unwrap();
 }
