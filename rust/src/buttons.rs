@@ -2,6 +2,8 @@ use crate::config::*;
 use crate::utils::clamp;
 use rppal::gpio::{Gpio, OutputPin};
 use std::error::Error;
+use jni::JNIEnv;
+use jni::sys::jint;
 
 /// Struct to manage LED control and underlighting using the SN3218 LED driver
 pub struct Buttons {
@@ -47,4 +49,26 @@ impl Buttons {
 
         Ok(())
     }
+}
+
+pub fn notify_button_pressed(env: &mut JNIEnv, button_id: u8) {
+    let button_class = env.find_class("com/swiftbot/NativeBindings").unwrap();
+    env.call_static_method(
+        button_class,
+        "onButtonPressed",
+        "(I)V",
+        &[jint::from(button_id).into()],
+    )
+        .unwrap();
+}
+
+pub fn notify_button_released(env: &mut JNIEnv, button_id: u8) {
+    let button_class = env.find_class("com/swiftbot/NativeBindings").unwrap();
+    env.call_static_method(
+        button_class,
+        "onButtonReleased",
+        "(I)V",
+        &[jint::from(button_id).into()],
+    )
+        .unwrap();
 }

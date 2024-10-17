@@ -11,7 +11,7 @@ mod sn3218;
 use crate::sn3218::UnderlightLeds;
 use crate::motors::Motors;
 use crate::sensors::Sensors;
-use crate::buttons::Buttons;
+use crate::buttons::{notify_button_pressed, notify_button_released, Buttons};
 use crate::camera::CameraController;
 use crate::config::{BUTTON_A_PIN, BUTTON_B_PIN, BUTTON_X_PIN, BUTTON_Y_PIN};
 
@@ -19,6 +19,8 @@ use jni::objects::JClass;
 use jni::sys::{jboolean, jbyteArray, jdouble, jint};
 use jni::JNIEnv;
 use std::sync::Mutex;
+use std::thread;
+use std::time::Duration;
 use rppal::gpio::{Gpio, InputPin};
 
 //Use lazy_static to create static instances accessible across JNI calls
@@ -258,7 +260,7 @@ pub extern "system" fn Java_com_swiftbot_NativeBindings_readDistance(
     _class: JClass,
 ) -> jdouble {
     let mut sensors = SENSORS.lock().unwrap();
-    match sensors.read_distance(50, 3, 190_000) {
+    match sensors.read_distance(50) {
         Ok(distance) => distance as jdouble,
         Err(e) => {
             let _ = env.throw_new("java/lang/Exception", format!("{}", e));
@@ -266,6 +268,12 @@ pub extern "system" fn Java_com_swiftbot_NativeBindings_readDistance(
         }
     }
 }
+
+//
+//
+//                        BUTTONS
+//
+//
 
 /// Reads the state of a button pin.
 ///
@@ -497,4 +505,38 @@ pub extern "system" fn Java_com_swiftbot_NativeBindings_captureImage(
             std::ptr::null_mut()
         }
     }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_swiftbot_NativeBindings_startButtonMonitoring(
+    env: JNIEnv,
+    _class: JClass,
+) {
+    //Start a new thread to monitor button presses
+    thread::spawn(move || {
+        let mut button_states = [false; 4];
+
+        loop {
+            for (i, pin) in [BUTTON_A_PIN, BUTTON_B_PIN, BUTTON_X_PIN, BUTTON_Y_PIN]
+                .iter()
+                .enumerate()
+            {
+                let is_pressed = pin.is_high();
+
+                //Detect button press
+                if is_pressed && !button_states[i] {
+                    notify_button_pressed(&env, i as u8);
+                    button_states[i] = true;
+                }
+
+                //Detect button release
+                else if !is_pressed && button_states[i] {
+                    notify_button_released(&env, i as u8);
+                    button_states[i] = false;
+                }
+            }
+
+            thread::sleep(Duration::from_millis(50)); //Have it sleep so the thread doesn't explode listening.
+        }
+    });
 }

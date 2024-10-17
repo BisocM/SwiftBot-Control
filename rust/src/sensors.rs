@@ -23,7 +23,7 @@ impl Sensors {
         let timeout = Duration::from_millis(timeout_ms);
 
         //Trigger a pulse by setting the trigger pin high for 10 microseconds
-        self.ultra_trig.set_low();  // Ensure the trigger pin is low
+        self.ultra_trig.set_low();  //Ensure the trigger pin is low
         std::thread::sleep(Duration::from_micros(2));  //Wait 2 microseconds
         self.ultra_trig.set_high();
         std::thread::sleep(Duration::from_micros(10));  //Pulse for 10 microseconds
