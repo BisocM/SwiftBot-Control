@@ -90,5 +90,24 @@ class NativeBindings {
     public static native void clearUnderlighting();
 
     //Camera control
-    public static native byte[] captureImage();
+    public static native byte[] captureImageToBuffer();
+    public static native void startRtspStreaming();
+    public static native void stopRtspStreaming();
 }
+
+/*
+Sample code for recording, was too lazy to actually include it somewhere.
+
+*     public static void main(String[] args) {
+        try {
+            NativeBindings.startRecording("/home/pi/video.mp4");
+
+            //Record for 10 seconds. Sadly, no native support for freezing the thread here. Better off to wrap this around a required duration param so students don't forget to freeze thread.
+            //If students want to offload this to another thread for data analysis or similar, there will be issues there, too.
+            Thread.sleep(10000);
+            NativeBindings.stopRecording();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+* */
